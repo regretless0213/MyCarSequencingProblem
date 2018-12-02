@@ -10,6 +10,6 @@
 	<classpathentry kind="lib" path="lib/trove4j-3.0.3.jar"/>
 	<classpathentry kind="lib" path="lib/antlr-runtime-4.5.3.jar"/>
 	<classpathentry kind="lib" path="lib/choco-solver-4.0.0.jar"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jre1.8.0_192"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
