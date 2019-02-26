@@ -1,32 +1,4 @@
-/**
- * Copyright (c) 2016, chocoteam
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * * Redistributions of source code must retain the above copyright notice, this
- *   list of conditions and the following disclaimer.
- *
- * * Redistributions in binary form must reproduce the above copyright notice,
- *   this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
- *
- * * Neither the name of samples nor the names of its
- *   contributors may be used to endorse or promote products derived from
- *   this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+
 package MyCSP.model;
 
 import org.chocosolver.samples.AbstractProblem;
@@ -34,6 +6,7 @@ import org.chocosolver.solver.Model;
 import org.chocosolver.solver.variables.IntVar;
 import org.kohsuke.args4j.Option;
 
+import java.util.List;
 import java.util.Scanner;
 
 import static org.chocosolver.solver.search.strategy.Search.MyHeuristicSearch;
@@ -41,30 +14,20 @@ import static org.chocosolver.solver.search.strategy.Search.MyHeuristicSearch;
 
 import MyCSP.model.data.DataSet.*;
 
-/**
- * CSPLib prob001:<br/>
- * "A number of cars are to be produced; they are not identical, because
- * different options are available as variants on the basic model. <br/>
- * The assembly line has different stations which install the various options
- * (air-conditioning, sun-roof, etc.). These stations have been designed to
- * handle at most a certain percentage of the cars passing along the assembly
- * line. Furthermore, the cars requiring a certain option must not be bunched
- * together, otherwise the station will not be able to cope. Consequently, the
- * cars must be arranged in a sequence so that the K of each station is never
- * exceeded. <br/>
- * For instance, if a particular station can only cope with at most half of the
- * cars passing along the line, the sequence must be built so that at most 1 car
- * in any 2 requires that option. <br/>
- * The problem has been shown to be NP-complete (Gent 1999)" <br/>
- *
- * @author Charles Prud'homme
- * @since 03/08/11
- */
-public class CarSequencing extends AbstractProblem {
+public class CheckForCS extends AbstractProblem {
+	
+	private String[] check;
+	public List<String> sf;
+	public CheckForCS(String[] result,List<String> num) {
+		// TODO Auto-generated constructor stub
+		check = result;
+		sf = num;
+	}
+	
 
 	@Option(name = "-d", aliases = "--data", usage = "Car sequencing data.", required = false)
 //	Data data = Data.P4_72;
-	CSPLib data = CSPLib.random09;
+	CSPLib data = CSPLib.valueOf("random19");
 //	MyData data = MyData.md05;
 
 	IntVar[] cars;
@@ -80,8 +43,24 @@ public class CarSequencing extends AbstractProblem {
 		parse(data.source());
 		// System.out.println(data.source());
 		prepare();
+		// 将结果输出成整型数组，用来验证一组解是否合法
+
+		int ri = 2, rj = 0;
+		int[] array = new int[check.length / 3];
+		while (ri < check.length) {
+			array[rj] = Integer.parseInt(check[ri]);
+//			System.out.println(rj + " " + array[rj]);
+			rj++;
+			ri += 3;
+		}
+
 		int max = nClasses - 1;
-		cars = model.intVarArray("cars", nCars, 0, max, false);
+//		cars = model.intVarArray(nCars, array);
+		cars = new IntVar[nCars];
+		for(int ci = 0;ci < nCars;ci++) {
+			cars[ci] = model.intVar(array[ci], array[ci]);
+		}
+
 		IntVar[] expArray = new IntVar[nClasses];
 
 		for (int optNum = 0; optNum < options.length; optNum++) {
@@ -139,11 +118,19 @@ public class CarSequencing extends AbstractProblem {
 
 	@Override
 	public void solve() {
-		model.getSolver().solve();
-        model.getSolver().printStatistics();
-//        for (int i = 0; i < nCars;i++) {
-//            System.out.println(model.getVars()[i]);
-//        }
+		System.out.println("CheckForCS检查结果：");
+		
+		
+		if(model.getSolver().solve()) {
+			sf.add("");
+			System.out.println("success！");
+		}else {
+			System.out.println("FAIL！！！！!\n");
+		}
+//		model.getSolver().printStatistics();
+//		for (int i = 0; i < nCars; i++) {
+//			System.out.println(model.getVars()[i]);
+//		}
 		/*
 		 * for (int i = 0; i < matrix.length; i++) { for (int j = 0; j <
 		 * matrix[i].length; j++) { System.out.print(matrix[i][j]+ "  "); }
@@ -151,9 +138,7 @@ public class CarSequencing extends AbstractProblem {
 		 */
 	}
 
-	public static void main(String[] args) {
-		new CarSequencing().execute(args);
-	}
+
 
 	private int[][] parse(String source) {
 		int[][] data = null;
@@ -229,6 +214,4 @@ public class CarSequencing extends AbstractProblem {
 	/////////////////////////////////// DATA
 	/////////////////////////////////// //////////////////////////////////////////////////
 
-
 }
-

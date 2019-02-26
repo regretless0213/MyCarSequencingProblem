@@ -1,32 +1,4 @@
-/**
- * Copyright (c) 2016, Ecole des Mines de Nantes
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    This product includes software developed by the <organization>.
- * 4. Neither the name of the <organization> nor the
- *    names of its contributors may be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY <COPYRIGHT HOLDER> ''AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+
 package MyCSP.heuristic.values;
 
 import gnu.trove.list.TIntList;
@@ -34,31 +6,16 @@ import gnu.trove.list.array.TIntArrayList;
 import org.chocosolver.solver.search.strategy.selectors.values.IntValueSelector;
 import org.chocosolver.solver.variables.IntVar;
 
-/**
- * Implementation of DowOverWDeg[1].
- *
- * [1]: F. Boussemart, F. Hemery, C. Lecoutre, and L. Sais, Boosting Systematic
- * Search by Weighting Constraints, ECAI-04. <br/>
- *
- * @author Charles Prud'homme
- * @since 12/07/12
- */
 public final class SelectionAggregation implements IntValueSelector {
 
-	/**
-	 * Temporary. Stores index of variables with the same (best) score
-	 */
 	private TIntList bests;
 
-	/**
-	 * Randomness to break ties
-	 */
 	private java.util.Random random;
 
 	private IntVar[] CarSeq; // 变量数组
 	private int[][] matrix, optfreq; // 传递过来的0/1矩阵、容量矩阵
-	private int[] demands, result; // 传递过来的每个类的需求;存储动态下每个零件已经安装了几次
-	private int slots; // 总插槽数
+	private int[] demands, result, slotava; // 传递过来的每个类的需求;存储动态下每个零件已经安装了几次；每个零件对应的剩余插槽数
+//	private int slots; // 总插槽数
 
 	public SelectionAggregation(IntVar[] vars, long seed, int[][] options, int[][] frequency, int[] nums) {
 		bests = new TIntArrayList();
@@ -67,14 +24,21 @@ public final class SelectionAggregation implements IntValueSelector {
 		optfreq = frequency;
 		demands = nums;
 		CarSeq = vars;
-		slots = 0;
+//		slots = 0;
+		slotava = new int[optfreq.length];
 
-		for (int j = 0; j < matrix.length; j++) {
-			for (int i = 0; i < matrix[0].length; i++) {
-				slots += matrix[j][i] * demands[j];
-			}
+		for (int j = 0; j < slotava.length; j++) {
+			slotava[j] = sumofArray(demands);
 		}
 		// System.out.println(slots);
+	}
+
+	private int sumofArray(int[] array) {
+		int sum = 0;
+		for (int i = 0; i < array.length; i++) {
+			sum += array[i];
+		}
+		return sum;
 	}
 
 	@Override
@@ -99,6 +63,7 @@ public final class SelectionAggregation implements IntValueSelector {
 		// System.out.println(length);
 		result = new int[length];
 		if (retmp != null) {
+			// 统计中间值矩阵中各零件已被赋值的次数
 			for (int m = 0; m < retmp.length; m++) {
 				int row = retmp[m];
 				// System.out.println(row);
@@ -109,6 +74,41 @@ public final class SelectionAggregation implements IntValueSelector {
 				}
 //				System.out.println();
 			}
+			// 计算剩余插槽数
+			for (int n = 0; n < length; n++) {
+				int m = 0;
+				int count = 0;
+				int index = 0;
+				for (; m < retmp.length; m++) {
+					int row = retmp[m];
+					// 已赋值的部分一定满足约束
+					if (optfreq[n][0] == 1) {
+						if (matrix[row][n] == 1) {
+							m += optfreq[n][1] - 1;
+						}
+					} else if (optfreq[n][0] == 2) {
+						if (matrix[row][n] == 1) {
+							count++;
+							if (count < 2) {
+								index = m;
+							} else {
+								if (m - index > optfreq[n][1] - 1) {
+									count = 1;
+									index = m;
+								} else {
+									m = index + optfreq[n][1];
+								}
+								count = 0;
+							}
+						}
+					}
+				}
+				slotava[n] = sumofArray(demands) - m;
+				if (slotava[n] < 0) {
+					slotava[n] = 0;
+				}
+
+			}
 		}
 
 		double _d = 0;
@@ -116,7 +116,7 @@ public final class SelectionAggregation implements IntValueSelector {
 		for (int idx = var.getLB(); idx <= up; idx = var.nextValue(idx)) {
 			// System.out.print("value ");
 			// System.out.print(idx + " ");
-			double weight = load(matrix[idx]); //权值
+			double weight = load(matrix[idx]); // 权值
 			if (weight > _d) {
 				bests.clear();
 				bests.add(idx);
@@ -125,6 +125,7 @@ public final class SelectionAggregation implements IntValueSelector {
 				bests.add(idx);
 			}
 		}
+//		System.out.println("最优值列表大小"+bests.size());
 		// System.out.println();
 //		if (bests.size() > 0) {
 //			int currentVar = bests.get(random.nextInt(bests.size()));
@@ -142,7 +143,7 @@ public final class SelectionAggregation implements IntValueSelector {
 			System.out.println("weight error!");
 		}
 		return currentVar;
-		
+
 	}
 
 	// 常数
@@ -210,7 +211,9 @@ public final class SelectionAggregation implements IntValueSelector {
 		// 动态剩余需求如何计算
 		for (int i = 0; i < v.length; i++) {
 //			w += v[i] * (slots - demand(i) + loadcompute(i));
-			w += v[i] * (slots - (demand(i) - result[i]) + loadcompute(i));
+//			w += v[i] * (slots - (demand(i) - result[i]) + loadcompute(i));
+			// 未完成
+			w += v[i] * (sumofArray(slotava) - slotava[i] + loadcompute(i));
 		}
 //		System.out.print(w + " ");
 		return w;
@@ -221,9 +224,29 @@ public final class SelectionAggregation implements IntValueSelector {
 		double w = 0;
 		// 动态剩余需求如何计算
 		for (int i = 0; i < v.length; i++) {
-			w += v[i] * (loadcompute(i) / demand(i));
+			int tmp = slotava[i];
+			if (tmp == 0) {
+				tmp = 1;
+			}
+			w += v[i] * (loadcompute(i) / tmp);
 		}
 //		System.out.print(w + " ");
 		return w;
 	}
+	
+	// 测试
+	private double neweight(int[] v) {
+		double w = 0;
+		// 动态剩余需求如何计算
+		for (int i = 0; i < v.length; i++) {
+			int tmp = slotava[i];
+			if (tmp == 0) {
+				tmp = 1;
+			}
+			w += v[i] * (sumofArray(slotava) * loadcompute(i) / (sumofArray(slotava) - slotava[i] + loadcompute(i)));
+		}
+//		System.out.print(w + " ");
+		return w;
+	}
+
 }

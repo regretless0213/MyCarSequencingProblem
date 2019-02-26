@@ -224,7 +224,7 @@ public class MyRandomDataUpdate {
 		// int[] test = {1,2,3,4};
 		// int r = new MyRandomData().sum(test);
 		// System.out.println(r);
-		MyRandomDataUpdate mrd = new MyRandomDataUpdate(5000, 7, 86);
+		MyRandomDataUpdate mrd = new MyRandomDataUpdate(10000, 5, 19);
 		List<List<Integer>> mdb = mrd.getMyData();
 		while (!mrd.satisfic(mdb)) {
 			mdb = mrd.getMyData();

@@ -19,8 +19,8 @@ public final class SUStandardization implements IntValueSelector {
 
 	private IntVar[] CarSeq; // 变量数组
 	private int[][] matrix, optfreq; // 传递过来的0/1矩阵、容量矩阵
-	private int[] demands, result; // 传递过来的每个类的需求;存储动态下每个零件已经安装了几次
-	private int slots; // 总插槽数
+	private int[] demands, result,slotava; // 传递过来的每个类的需求;存储动态下每个零件已经安装了几次
+//	private int slots; // 总插槽数
 	private int domain;
 
 	public SUStandardization(IntVar[] vars, long seed, int[][] options, int[][] frequency, int[] nums) {
@@ -31,16 +31,21 @@ public final class SUStandardization implements IntValueSelector {
 		optfreq = frequency;
 		demands = nums;
 		CarSeq = vars;
-		slots = 0;
-
-		for (int j = 0; j < matrix.length; j++) {
-			for (int i = 0; i < matrix[0].length; i++) {
-				slots += matrix[j][i] * demands[j];
-			}
+		slotava = new int[optfreq.length];
+		
+		for (int j = 0; j < slotava.length; j++) {
+			slotava[j] = sumofArray(demands);
 		}
 		// System.out.println(slots);
 	}
 
+	private int sumofArray(int[] array) {
+		int sum = 0;
+		for (int i = 0; i < array.length; i++) {
+			sum += array[i];
+		}
+		return sum;
+	}
 	@Override
 	public int selectValue(IntVar var) {
 		// TODO Auto-generated method stub
@@ -72,6 +77,39 @@ public final class SUStandardization implements IntValueSelector {
 					// System.out.print("result" + n + " " + result[n]);
 				}
 				// System.out.println();
+			}
+			
+			// 计算剩余插槽数
+			for (int n = 0; n < length; n++) {
+				int m = 0;
+				int count = 0;
+				int index = 0;
+				for (; m < retmp.length; m++) {
+					int row = retmp[m];
+					// 已赋值的部分一定满足约束
+					if (optfreq[n][0] == 1) {
+						if (matrix[row][n] == 1) {
+							m += optfreq[n][1] - 1;
+						}
+					} else if (optfreq[n][0] == 2) {
+						if (matrix[row][n] == 1) {
+							count++;
+							if (count < 2) {
+								index = m;
+							} else {
+								if (m - index > optfreq[n][1] - 1) {
+									count = 1;
+									index = m;
+								} else {
+									m = index + optfreq[n][1];
+								}
+								count = 0;
+							}
+						}
+					}
+				}
+				slotava[n] = sumofArray(demands) - m;
+
 			}
 		}
 
@@ -250,9 +288,12 @@ public final class SUStandardization implements IntValueSelector {
 		double w = 0;
 		// 动态剩余需求如何计算
 		for (int i = 0; i < v.length; i++) {
-			w += v[i] * (slots - demand(i) + loadcompute(i));
+//			w += v[i] * (slots - demand(i) + loadcompute(i));
+//			w += v[i] * (slots - (demand(i) - result[i]) + loadcompute(i));
+			//未完成
+			w += v[i] * (sumofArray(slotava) - slotava[i] + loadcompute(i));
 		}
-		// System.out.print(w + " ");
+//		System.out.print(w + " ");
 		return w;
 	}
 
@@ -261,9 +302,9 @@ public final class SUStandardization implements IntValueSelector {
 		double w = 0;
 		// 动态剩余需求如何计算
 		for (int i = 0; i < v.length; i++) {
-			w += v[i] * (loadcompute(i) / demand(i));
+			w += v[i] * (loadcompute(i) / slotava[i]);
 		}
-		// System.out.print(w + " ");
+//		System.out.print(w + " ");
 		return w;
 	}
 }
